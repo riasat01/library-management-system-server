@@ -21,16 +21,16 @@ app.use(CookieParser());
 
 const verifyToken = async (req, res, next) => {
     const token = req.cookies?.token;
-    console.log(`Value of token in middleware ${token}`);
+    // console.log(`Value of token in middleware ${token}`);
     if (!token) {
         return res.status(401).send({ message: 'Not Authorized' });
     }
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
         if (err) {
-            console.log(err);
+            // console.log(err);
             return res.status(401).send({ message: 'unauthorized' })
         }
-        console.log('Value in the token', decoded);
+        // console.log('Value in the token', decoded);
         req.verifiedUser = decoded;
         next();
     })
@@ -56,6 +56,7 @@ async function run() {
 
 
         const library = client.db("library").collection("books");
+        const borrow = client.db("library").collection("borrow");
 
         // auth related api 
         app.post('/jwt', async (req, res) => {
@@ -102,12 +103,46 @@ async function run() {
 
         app.get('/book/:id', verifyToken, async (req, res) => {
             const email = req.query.email;
-            if (email !== req.verifiedUser.email) {
+            if (email !== req?.verifiedUser?.email) {
                 return res.status(403).send({ message: 'forbidden access' });
             }
             const _id = req.params.id;
             const filter = { _id: new ObjectId(_id) };
             const result = await library.findOne(filter);
+            res.send(result);
+        })
+
+        app.put('/book/:id', async (req, res) => {
+            const _id = req.params.id;
+            const filter = { _id: new ObjectId(_id) };
+            const quantity = req.body.quantity;
+            // console.log(quantity);
+            const updateDoc = {
+                $set: {
+                    quantity: quantity
+                },
+            };
+            const result = await library.updateOne(filter, updateDoc);
+            // console.log(result);
+            res.send(result);
+        })
+
+        app.get('/borrow', verifyToken, async (req, res) => {
+            const email = req.query.email;
+            const name = req.query.name;
+            if (email !== req?.verifiedUser?.email) {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
+            // const _id = req.params.id;
+            const filter = { userEmail: email, name: name };
+            const result = await borrow.find(filter).toArray();
+            res.send(result);
+        })
+
+        app.post('/borrow', async (req, res) => {
+            const info = req.body;
+            // console.log(info);
+            const result = await borrow.insertOne(info);
             res.send(result);
         })
 
