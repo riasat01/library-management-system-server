@@ -3,7 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 const app = express();
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 // built in middleware
 app.use(cors());
@@ -32,9 +32,7 @@ async function run() {
 
         // services related api endpoints
         app.get('/books', async (req, res) => {
-            
             const query = req.query;
-            // console.log(query);
             if(query.category === 'All'){
                 const result = await library.find().toArray();
                 res.send(result);
@@ -47,6 +45,13 @@ async function run() {
         app.post('/books', async (req, res) => {
             const book = req.body;
             const result = await library.insertOne(book);
+        })
+
+        app.get('/book/:id', async (req, res) => {
+            const _id = req.params.id;
+            const filter = { _id: new ObjectId(_id)};
+            const result = await library.findOne(filter);
+            res.send(result);
         })
 
 
