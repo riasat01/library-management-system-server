@@ -4,10 +4,37 @@ require("dotenv").config();
 const port = process.env.PORT || 5000;
 const app = express();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const jwt = require("jsonwebtoken");
+const CookieParser = require('cookie-parser');
 
 // built in middleware
-app.use(cors());
+app.use(cors({
+    origin: [
+        'http://localhost:5173'
+    ],
+    credentials: true
+}));
 app.use(express.json());
+app.use(CookieParser());
+
+// custom middleware
+
+const verifyToken = async (req, res, next) => {
+    const token = req.cookies?.token;
+    console.log(`Value of token in middleware ${token}`);
+    if (!token) {
+        return res.status(401).send({ message: 'Not Authorized' });
+    }
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+            console.log(err);
+            return res.status(401).send({ message: 'unauthorized' })
+        }
+        console.log('Value in the token', decoded);
+        req.verifiedUser = decoded;
+        next();
+    })
+}
 
 
 
@@ -30,13 +57,37 @@ async function run() {
 
         const library = client.db("library").collection("books");
 
+        // auth related api 
+        app.post('/jwt', async (req, res) => {
+            const user = req.body;
+            // console.log(user);
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+            res
+                .cookie('token', token, {
+                    httpOnly: true,
+                    secure: true,
+                    sameSite: 'none'
+                })
+                .send({ success: true });
+        })
+
+        app.post('/logout', async (req, res) => {
+            const user = req.body;
+            // console.log('logging out user', user);
+            res.clearCookie('token', { maxAge: 0 }).send({ success: true })
+        })
+
         // services related api endpoints
-        app.get('/books', async (req, res) => {
+        app.get('/books', verifyToken, async (req, res) => {
             const query = req.query;
-            if(query.category === 'All'){
+            const email = req.query.email;
+            if (email !== req.verifiedUser.email) {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
+            if (query.category === 'All') {
                 const result = await library.find().toArray();
                 res.send(result);
-            }else{
+            } else {
                 const filter = { category: query.category };
                 const result = await library.find(filter).toArray();
                 res.send(result);
@@ -44,12 +95,18 @@ async function run() {
         })
         app.post('/books', async (req, res) => {
             const book = req.body;
+            // console.log(book);
             const result = await library.insertOne(book);
+            res.send(result);
         })
 
-        app.get('/book/:id', async (req, res) => {
+        app.get('/book/:id', verifyToken, async (req, res) => {
+            const email = req.query.email;
+            if (email !== req.verifiedUser.email) {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
             const _id = req.params.id;
-            const filter = { _id: new ObjectId(_id)};
+            const filter = { _id: new ObjectId(_id) };
             const result = await library.findOne(filter);
             res.send(result);
         })
