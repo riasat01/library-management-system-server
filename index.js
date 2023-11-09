@@ -57,6 +57,7 @@ async function run() {
 
         const library = client.db("library").collection("books");
         const borrow = client.db("library").collection("borrow");
+        const utility = client.db("library").collection("utility");
 
         // auth related api 
         app.post('/jwt', async (req, res) => {
@@ -81,6 +82,16 @@ async function run() {
 
 
         // services related api endpoints
+        // banner data
+        app.get('/banner', async (req, res) => {
+            const result = await utility?.find({category: 'banner'}).toArray();
+            res.send(result);
+        })
+
+        app.get('/category', async (req, res) => {
+            const result = await utility?.find({category: {$ne:'banner'}}).toArray();
+            res.send(result);
+        })
         app.get('/books', verifyToken, async (req, res) => {
             const query = req.query;
             const email = req.query.email;
