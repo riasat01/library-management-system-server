@@ -78,6 +78,13 @@ async function run() {
             // console.log('logging out user', user);
             res.clearCookie('token', { maxAge: 0 }).send({ success: true })
         })
+        // app.get('/librarian', verifyToken, async (req, res) => {
+        //     const email = req.query.email;
+        //     if (email === req.verifiedUser.email && email === 'librarian@admin.mail') {
+        //         res.send({admin: true});
+        //     }
+        //     res.send({admin: false});
+        // })
 
 
 
