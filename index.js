@@ -10,7 +10,9 @@ const CookieParser = require('cookie-parser');
 // built in middleware
 app.use(cors({
     origin: [
-        'http://localhost:5173'
+        // 'http://localhost:5173'
+        'https://papyrusportal-4ba83.web.app',
+        'https://papyrusportal-4ba83.firebaseapp.com'
     ],
     credentials: true
 }));
