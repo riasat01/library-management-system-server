@@ -78,6 +78,8 @@ async function run() {
             res.clearCookie('token', { maxAge: 0 }).send({ success: true })
         })
 
+
+
         // services related api endpoints
         app.get('/books', verifyToken, async (req, res) => {
             const query = req.query;
@@ -101,6 +103,49 @@ async function run() {
             res.send(result);
         })
 
+        // update book info
+        app.put('/update/:id', async (req, res) => {
+            const id = req.params.id;
+            const updateBook = req.body;
+            const { image_url, name, quantity, author, category, description, rating } = updateBook;
+            // const result = await library.findOne({_id: new ObjectId(id)});
+            const filter = {_id: new ObjectId(id)}
+            const updateDoc = { 
+                $set : {
+                    image_url: image_url,
+                    name: name,
+                    quantity: quantity,
+                    author: author,
+                    category: category,
+                    description: description,
+                    rating: rating
+                }
+            }
+            const result = await library.updateOne(filter, updateDoc);
+            // console.log(updateDoc, result);
+            res.send(result);
+        })
+
+        // add book after return
+        app.put('/books', async (req, res) => {
+            const name = req.query.name;
+            const author = req.query.author;
+            const category = req.query.category;
+            const filter = { name: name, author: author, category: category };
+            const book =  await library.findOne(filter)
+            const quantity = book.quantity;
+            const newQuantity = parseInt(quantity) + 1;
+            // console.log(book, quantity);
+            const updateDoc = {
+                $set: {
+                    quantity: newQuantity
+                },
+            };
+            const result = await library.updateOne(filter, updateDoc);
+            // console.log(result);
+            res.send(result);
+        })
+
         app.get('/book/:id', verifyToken, async (req, res) => {
             const email = req.query.email;
             if (email !== req?.verifiedUser?.email) {
@@ -112,6 +157,7 @@ async function run() {
             res.send(result);
         })
 
+        // reduce book after borrow
         app.put('/book/:id', async (req, res) => {
             const _id = req.params.id;
             const filter = { _id: new ObjectId(_id) };
@@ -127,9 +173,20 @@ async function run() {
             res.send(result);
         })
 
+        app.get('/borrows', verifyToken, async (req, res) => {
+            const email = req?.query?.email;
+            // const name = req?.query?.name;
+            if (email !== req?.verifiedUser?.email) {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
+            // const _id = req.params.id;
+            const filter = { userEmail: email };
+            const result = await borrow.find(filter).toArray();
+            res.send(result);
+        })
         app.get('/borrow', verifyToken, async (req, res) => {
-            const email = req.query.email;
-            const name = req.query.name;
+            const email = req?.query?.email;
+            const name = req?.query?.name;
             if (email !== req?.verifiedUser?.email) {
                 return res.status(403).send({ message: 'forbidden access' });
             }
@@ -143,6 +200,17 @@ async function run() {
             const info = req.body;
             // console.log(info);
             const result = await borrow.insertOne(info);
+            res.send(result);
+        })
+
+        app.delete('/borrow', async (req, res) => {
+            const email = req?.query?.email;
+            const name = req?.query?.name;
+           
+            // console.log(email, name);
+            // const _id = req.params.id;
+            const filter = { userEmail: email, name: name };
+            const result = await borrow.deleteOne(filter)
             res.send(result);
         })
 
