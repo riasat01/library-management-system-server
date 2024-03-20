@@ -6,11 +6,14 @@ const app = express();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const jwt = require("jsonwebtoken");
 const CookieParser = require('cookie-parser');
+const { setUpDb } = require("./src/utils/setUpDb");
+const { createTables } = require("./src/utils/createTables");
+const { bannerData } = require("./src/api/v1/banner/controllers/banner");
 
 // built in middleware
 app.use(cors({
     origin: [
-        // 'http://localhost:5173'
+        'http://localhost:5173',
         'https://papyrusportal-4ba83.web.app',
         'https://papyrusportal-4ba83.firebaseapp.com'
     ],
@@ -39,17 +42,8 @@ const verifyToken = async (req, res, next) => {
 }
 
 
+const client = setUpDb();
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.1xv3maf.mongodb.net/?retryWrites=true&w=majority`;
-
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const client = new MongoClient(uri, {
-    serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
-    }
-});
 
 async function run() {
     try {
@@ -57,9 +51,7 @@ async function run() {
         // await client.connect();
 
 
-        const library = client.db("library").collection("books");
-        const borrow = client.db("library").collection("borrow");
-        const utility = client.db("library").collection("utility");
+        const [library, borrow, utility] = createTables(client);
 
         // auth related api 
         app.post('/jwt', async (req, res) => {
@@ -92,10 +84,7 @@ async function run() {
 
         // services related api endpoints
         // banner data
-        app.get('/banner', async (req, res) => {
-            const result = await utility?.find({category: 'banner'}).toArray();
-            res.send(result);
-        })
+        app.get('/banner', async (req,res) => bannerData(req, res, utility));
 
         app.get('/category', async (req, res) => {
             const result = await utility?.find({category: {$ne:'banner'}}).toArray();
