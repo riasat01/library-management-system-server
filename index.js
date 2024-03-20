@@ -9,28 +9,11 @@ const { createTables } = require("./src/utils/createTables");
 const { bannerData } = require("./src/api/v1/banner/controllers/banner");
 const { getCategory } = require("./src/api/v1/category/controllers/category");
 const { applyDefaultMiddleWares } = require("./src/middleware/applyDefaultMiddleWares");
+const { verifyToken } = require("./src/middleware/verifyToken");
+const { getBooks, postABook, updateBookInfo, increaseBookAfterReturn, getABook, decreaseBookAfterBorrow } = require("./src/api/v1/books/controllers/books");
 
 // built in middleware
 applyDefaultMiddleWares();
-
-// custom middleware
-
-const verifyToken = async (req, res, next) => {
-    const token = req.cookies?.token;
-    // console.log(`Value of token in middleware ${token}`);
-    if (!token) {
-        return res.status(401).send({ message: 'Not Authorized' });
-    }
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-        if (err) {
-            // console.log(err);
-            return res.status(401).send({ message: 'unauthorized' })
-        }
-        // console.log('Value in the token', decoded);
-        req.verifiedUser = decoded;
-        next();
-    })
-}
 
 
 const client = setUpDb();
@@ -75,101 +58,23 @@ async function run() {
 
         // services related api endpoints
         // banner data
-        app.get('/banner', async (req,res) => bannerData(req, res, utility));
+        app.get('/banner', async (req, res) => bannerData(req, res, utility));
 
         app.get('/category', async (req, res) => getCategory(req, res, utility));
-        
-        app.get('/books', verifyToken, async (req, res) => {
-            const query = req.query;
-            const email = req.query.email;
-            if (email !== req.verifiedUser.email) {
-                return res.status(403).send({ message: 'forbidden access' });
-            }
-            if (query.category === 'All') {
-                const result = await library.find().toArray();
-                res.send(result);
-            } else {
-                const filter = { category: query.category };
-                const result = await library.find(filter).toArray();
-                res.send(result);
-            }
-        })
-        app.post('/books', async (req, res) => {
-            const book = req.body;
-            // console.log(book);
-            const result = await library.insertOne(book);
-            res.send(result);
-        })
+
+        app.get('/books', verifyToken, async (req, res) => getBooks(req, res, library));
+        app.post('/books', async (req, res) => postABook(req, res, library));
 
         // update book info
-        app.put('/update/:id', async (req, res) => {
-            const id = req.params.id;
-            const updateBook = req.body;
-            const { image_url, name, quantity, author, category, description, rating } = updateBook;
-            // const result = await library.findOne({_id: new ObjectId(id)});
-            const filter = {_id: new ObjectId(id)}
-            const updateDoc = { 
-                $set : {
-                    image_url: image_url,
-                    name: name,
-                    quantity: quantity,
-                    author: author,
-                    category: category,
-                    description: description,
-                    rating: rating
-                }
-            }
-            const result = await library.updateOne(filter, updateDoc);
-            // console.log(updateDoc, result);
-            res.send(result);
-        })
+        app.put('/update/:id', async (req, res) => updateBookInfo(req, res, library));
 
         // add book after return
-        app.put('/books', async (req, res) => {
-            const name = req.query.name;
-            const author = req.query.author;
-            const category = req.query.category;
-            const filter = { name: name, author: author, category: category };
-            const book =  await library.findOne(filter)
-            const quantity = book.quantity;
-            const newQuantity = parseInt(quantity) + 1;
-            // console.log(book, quantity);
-            const updateDoc = {
-                $set: {
-                    quantity: newQuantity
-                },
-            };
-            const result = await library.updateOne(filter, updateDoc);
-            // console.log(result);
-            res.send(result);
-        })
+        app.put('/books', async (req, res) => increaseBookAfterReturn(req, res, library));
 
-        app.get('/book/:id', verifyToken, async (req, res) => {
-            const email = req.query.email;
-            if (email !== req?.verifiedUser?.email) {
-                return res.status(403).send({ message: 'forbidden access' });
-            }
-            const _id = req.params.id;
-            const filter = { _id: new ObjectId(_id) };
-            const result = await library.findOne(filter);
-            res.send(result);
-        })
+        app.get('/book/:id', verifyToken, async (req, res) => getABook(req, res, library));
 
         // reduce book after borrow
-        app.put('/book/:id', async (req, res) => {
-            const _id = req.params.id;
-            const filter = { _id: new ObjectId(_id) };
-            const quantity = req.body.quantity;
-            // console.log(quantity);
-            const updateDoc = {
-                $set: {
-                    quantity: quantity
-                },
-            };
-            const result = await library.updateOne(filter, updateDoc);
-            // console.log(result);
-            res.send(result);
-        })
+        app.put('/book/:id', async (req, res) => decreaseBookAfterBorrow(req, res, library));
 
         app.get('/borrows', verifyToken, async (req, res) => {
             const email = req?.query?.email;
@@ -204,7 +109,7 @@ async function run() {
         app.delete('/borrow', async (req, res) => {
             const email = req?.query?.email;
             const name = req?.query?.name;
-           
+
             // console.log(email, name);
             // const _id = req.params.id;
             const filter = { userEmail: email, name: name };
