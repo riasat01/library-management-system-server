@@ -1,26 +1,17 @@
 const express = require("express");
-const cors = require("cors");
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 const app = express();
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const { ObjectId } = require('mongodb');
 const jwt = require("jsonwebtoken");
-const CookieParser = require('cookie-parser');
 const { setUpDb } = require("./src/utils/setUpDb");
 const { createTables } = require("./src/utils/createTables");
 const { bannerData } = require("./src/api/v1/banner/controllers/banner");
+const { getCategory } = require("./src/api/v1/category/controllers/category");
+const { applyDefaultMiddleWares } = require("./src/middleware/applyDefaultMiddleWares");
 
 // built in middleware
-app.use(cors({
-    origin: [
-        'http://localhost:5173',
-        'https://papyrusportal-4ba83.web.app',
-        'https://papyrusportal-4ba83.firebaseapp.com'
-    ],
-    credentials: true
-}));
-app.use(express.json());
-app.use(CookieParser());
+applyDefaultMiddleWares();
 
 // custom middleware
 
@@ -86,10 +77,8 @@ async function run() {
         // banner data
         app.get('/banner', async (req,res) => bannerData(req, res, utility));
 
-        app.get('/category', async (req, res) => {
-            const result = await utility?.find({category: {$ne:'banner'}}).toArray();
-            res.send(result);
-        })
+        app.get('/category', async (req, res) => getCategory(req, res, utility));
+        
         app.get('/books', verifyToken, async (req, res) => {
             const query = req.query;
             const email = req.query.email;
