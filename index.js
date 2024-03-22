@@ -11,6 +11,7 @@ const { getCategory } = require("./src/api/v1/category/controllers/category");
 const { applyDefaultMiddleWares } = require("./src/middleware/applyDefaultMiddleWares");
 const { verifyToken } = require("./src/middleware/verifyToken");
 const { getBooks, postABook, updateBookInfo, increaseBookAfterReturn, getABook, decreaseBookAfterBorrow } = require("./src/api/v1/books/controllers/books");
+const { getAllBorrowedBooks, getABorrowedBook, borrowABook, returnABook } = require("./src/api/v1/borrow/controllers/borrow");
 
 // built in middleware
 applyDefaultMiddleWares();
@@ -76,46 +77,13 @@ async function run() {
         // reduce book after borrow
         app.put('/book/:id', async (req, res) => decreaseBookAfterBorrow(req, res, library));
 
-        app.get('/borrows', verifyToken, async (req, res) => {
-            const email = req?.query?.email;
-            // const name = req?.query?.name;
-            if (email !== req?.verifiedUser?.email) {
-                return res.status(403).send({ message: 'forbidden access' });
-            }
-            // const _id = req.params.id;
-            const filter = { userEmail: email };
-            const result = await borrow.find(filter).toArray();
-            res.send(result);
-        })
-        app.get('/borrow', verifyToken, async (req, res) => {
-            const email = req?.query?.email;
-            const name = req?.query?.name;
-            if (email !== req?.verifiedUser?.email) {
-                return res.status(403).send({ message: 'forbidden access' });
-            }
-            // const _id = req.params.id;
-            const filter = { userEmail: email, name: name };
-            const result = await borrow.find(filter).toArray();
-            res.send(result);
-        })
+        app.get('/borrows', verifyToken, async (req, res) => getAllBorrowedBooks(req, res, borrow));
 
-        app.post('/borrow', async (req, res) => {
-            const info = req.body;
-            // console.log(info);
-            const result = await borrow.insertOne(info);
-            res.send(result);
-        })
+        app.get('/borrow', verifyToken, async (req, res) => getABorrowedBook(req, res, borrow));
 
-        app.delete('/borrow', async (req, res) => {
-            const email = req?.query?.email;
-            const name = req?.query?.name;
+        app.post('/borrow', async (req, res) => borrowABook(req, res, borrow));
 
-            // console.log(email, name);
-            // const _id = req.params.id;
-            const filter = { userEmail: email, name: name };
-            const result = await borrow.deleteOne(filter)
-            res.send(result);
-        })
+        app.delete('/borrow', async (req, res) => returnABook(req, res, borrow));
 
 
         // Send a ping to confirm a successful connection
